@@ -1,62 +1,38 @@
-# ===================================================================
-# 1. INITIALIZATION
-# ===================================================================
 clear
 units           metal
 dimension       3
 boundary        p f p
 atom_style      atomic
 
-# ===================================================================
-# 2. ATOM DEFINITION
-# ===================================================================
 read_data       GaN_ortho.lmp
 change_box      all y delta 0 10
 
-# ===================================================================
-# 3. SETTINGS
-# ===================================================================
-# Define atomic masses (often included in the data file)
 mass            1 69.723  # Ga
 mass            2 14.007  # N
 
-# Interatomic Potential Setup
-# You must download 'library.meam' and the parameter file (e.g., 'GaN.meam') 
-# from the NIST repository into your working directory.
 pair_style      meam
 pair_coeff      * * library.meam Ga N GaN.meam Ga N
 
-# Neighbor list parameters
 neighbor        2.0 bin
 neigh_modify    delay 0 every 1 check yes
 
-# ===================================================================
-# 4. MINIMIZATION
-# ===================================================================
 thermo          100
 thermo_style    custom step pe ke etotal temp lx ly lz press
 
 min_style       cg
 minimize        1.0e-8 1.0e-8 10000 10000
 
-# ===================================================================
-# 5. RUN (NVE Stability Check)
-# ===================================================================
 reset_timestep  0
 timestep        0.001     # 1 fs timestep (metal units)
 
-# Initialize velocities to a small non-zero temperature (e.g., 300K)
-# to properly test dynamical stability and energy conservation.
 velocity        all create 1.0e-6 87287 mom yes rot yes
 
 fix             1 all nve
 
-# Track energy conservation (etotal should remain constant in NVE)
 thermo          100
 thermo_style    custom step temp pe ke etotal press
 
 dump            1 all custom 100 dump.gan_mplane id type x y z
 dump_modify     1 element Ga N
 
-# Run for 5 ps (5000 steps * 0.001 ps/step = 5 ps)
 run             5000
