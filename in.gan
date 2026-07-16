@@ -4,14 +4,14 @@
 clear
 units           metal
 dimension       3
-boundary        p s p     # Periodic in X/Y, open (shrink-wrapped) in Z
+boundary        p f p
 atom_style      atomic
 
 # ===================================================================
 # 2. ATOM DEFINITION
 # ===================================================================
-# Note: Ensure your data file aligns the [1-100] direction along the Z-axis.
-read_data       GaN_mplane.lmp
+read_data       GaN_ortho.lmp
+change_box      all y delta 0 10
 
 # ===================================================================
 # 3. SETTINGS
