@@ -4,14 +4,14 @@
 clear
 units           metal
 dimension       3
-boundary        p p s     # Periodic in X/Y, open (shrink-wrapped) in Z
+boundary        p s p     # Periodic in X/Y, open (shrink-wrapped) in Z
 atom_style      atomic
 
 # ===================================================================
 # 2. ATOM DEFINITION
 # ===================================================================
 # Note: Ensure your data file aligns the [1-100] direction along the Z-axis.
-read_data       GaN_mplane.data
+read_data       GaN_mplane.lmp
 
 # ===================================================================
 # 3. SETTINGS
@@ -35,9 +35,8 @@ neigh_modify    delay 0 every 1 check yes
 # ===================================================================
 thermo          100
 thermo_style    custom step pe ke etotal temp lx ly lz press
-min_style       cg
 
-# Minimize to relax the bulk and surface atoms
+min_style       cg
 minimize        1.0e-8 1.0e-8 10000 10000
 
 # ===================================================================
@@ -55,6 +54,9 @@ fix             1 all nve
 # Track energy conservation (etotal should remain constant in NVE)
 thermo          100
 thermo_style    custom step temp pe ke etotal press
+
+dump            1 all custom 100 dump.gan_mplane id type x y z
+dump_modify     1 element Ga N
 
 # Run for 5 ps (5000 steps * 0.001 ps/step = 5 ps)
 run             5000
