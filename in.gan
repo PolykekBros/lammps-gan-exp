@@ -1,11 +1,11 @@
 clear
 units           metal
 dimension       3
-boundary        p f p
+boundary        p p f
 atom_style      atomic
 
-read_data       GaN_ortho.lmp
-change_box      all y delta 0 10
+read_data       GaN_ortho_rotated.lmp
+change_box      all z delta 0 10
 
 mass            1 69.723  # Ga
 mass            2 14.007  # N
