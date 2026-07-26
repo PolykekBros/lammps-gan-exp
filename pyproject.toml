@@ -1,0 +1,9 @@
+[project]
+name = "lammps-gan-exp"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "lammps>=2025.7.22.4.0",
+]
