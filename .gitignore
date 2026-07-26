@@ -1,2 +1,5 @@
 dump.*
 .venv
+log.*
+screen.*
+tmp_neb_files/
