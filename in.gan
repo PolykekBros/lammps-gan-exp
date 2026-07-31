@@ -4,9 +4,8 @@ dimension       3
 boundary        p p f
 atom_style      atomic
 
-read_data       GaN_mplane.lmp
+read_data       GaN_ortho_rotated.lmp
 change_box      all z delta 0 10
-# create_atoms    2 single 15.945 25.776 26.277 units box
 
 mass            1 69.723  # Ga
 mass            2 14.007  # N
@@ -20,10 +19,13 @@ neigh_modify    delay 0 every 1 check yes
 thermo          100
 thermo_style    custom step pe ke etotal temp lx ly lz press
 
-write_dump      all custom 100 id type x y z
+minimize        1.0e-8 1.0e-8 10000 10000
+create_atoms    1 single 15.945 29.776 27.277 units box
+
+write_dump      all custom 001 id type x y z
 min_style       cg
 minimize        1.0e-8 1.0e-8 10000 10000
-write_dump      all custom 100 id type x y z
+write_dump      all custom 002 id type x y z
 
 reset_timestep  0
 timestep        0.001     # 1 fs timestep (metal units)
