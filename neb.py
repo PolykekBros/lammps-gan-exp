@@ -47,10 +47,12 @@ def relax_stuff(x, y, z, n):
             "pair_style meam\n"
             "pair_coeff * * library.meam Ga N GaN.meam Ga N\n"
             "minimize 1.0e-10 1.0e-10 10000 10000\n"
+            "reset_timestep 0\n"
             f"write_dump all custom {DUMP_MINIMIZE}.{n} id type x y z\n"
             f"create_atoms 1 single {x} {y} {z} units box\n"
             f"write_dump all custom {DUMP_ATOM}.{n} id type x y z\n"
             "minimize 1.0e-10 1.0e-10 10000 10000\n"
+            "reset_timestep 0\n"
             f"write_dump all custom {DUMP_ATOM_MINIMIZE}.{n} id type x y z\n"
         )
     exec_lmp(in_file)
@@ -88,30 +90,32 @@ def do_neb(n):
             "boundary p p f\n"
             "atom_style atomic\n"
             "atom_modify map array sort 0 0.0\n"
-            f"read_dump {DUMP_ATOM_MINIMIZE}.{n}\n"
+            "region 1 block 0 1 0 1 0 1\n"
+            "create_box 2 1\n"
+            f"read_dump {DUMP_ATOM_MINIMIZE}.{n} 0 id type x y z box yes add yes\n"
             "mass 1 69.723\n"
             "mass 2 14.007\n"
+            "write_dump all custom dump.neb_check id type x y z\n"
             "pair_style meam\n"
             "pair_coeff * * library.meam Ga N GaN.meam Ga N\n"
             "min_style fire\n"
             "fix 1 all neb 1.0\n"
-            f"neb 0.0 1.0e-10 10000 10000 50 final {NEB_FINAL}\n"
+            f"neb 0.0 1.0e-10 1000 1000 100 final {NEB_FINAL}\n"
         )
-        subprocess.run(
-            [
-                "mpirun",
-                "-n",
-                str(N),
-                "lmp",
-                "-partition",
-                f"{N}x1",
-                "-in",
-                IN_FILE,
-            ],
-            text=True,
-            capture_output=True,
-            check=True,
-        )
+    subprocess.run(
+        [
+            "mpirun",
+            "-n",
+            str(N),
+            "lmp",
+            "-partition",
+            f"{N}x1",
+            "-in",
+            IN_FILE,
+        ],
+        text=True,
+        check=True,
+    )
 
 
 def main():
