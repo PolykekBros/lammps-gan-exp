@@ -6,9 +6,8 @@ edition = "2024"
 anyhow = "1.0.104"
 ---
 #![feature(frontmatter)]
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{bail, Context, Result};
 use std::{
-    array,
     cell::LazyCell,
     ffi::OsStr,
     fs::File,
@@ -84,10 +83,9 @@ fn relax_stuff(coords: [f64; 3], n: usize) -> Result<()> {
     let dump_atom = DUMP_ATOM.with_added_extension(&n.to_string());
     let dump_atom_minimize =
         DUMP_ATOM_MINIMIZE.with_added_extension(&n.to_string());
-    let file = File::open(&in_file)
+    let file = File::create(&in_file)
         .with_context(|| format!("file: {}", in_file.display()))?;
     let mut w = BufWriter::new(file);
-    writeln!(w, "units metal")?;
     writeln!(w, "units metal")?;
     writeln!(w, "dimension 3")?;
     writeln!(w, "boundary p p f")?;
@@ -138,10 +136,9 @@ where
         let line = line?;
         let tokens = line.split_whitespace().collect::<Vec<_>>();
         let idx = 0;
-        let Some(a_id) = tokens
+        let Some(Ok(a_id)) = tokens
             .get(idx)
             .map(|s| str::parse::<usize>(s))
-            .transpose()?
         else {
             continue;
         };
@@ -164,11 +161,53 @@ where
     bail!("could not find coords for atom id {A_ID}");
 }
 
+fn write_final(coords: [f64; 3]) -> Result<()> {
+    let file = File::create(NEB_FINAL.as_path())?;
+    let mut w = BufWriter::new(file);
+    writeln!(w, "1")?;
+    writeln!(w, "{A_ID} {} {} {}", coords[0], coords[1], coords[2])?;
+    Ok(())
+}
+
+fn do_neb(n: usize) -> Result<()> {
+    let file = File::create(IN_FILE.as_path())?;
+    let mut w = BufWriter::new(file);
+    writeln!(w, "units metal")?;
+    writeln!(w, "dimension 3")?;
+    writeln!(w, "boundary p p f")?;
+    writeln!(w, "atom_style atomic")?;
+    writeln!(w, "atom_modify map array sort 0 0.0")?;
+    writeln!(w, "region 1 block 0 1 0 1 0 1")?;
+    writeln!(w, "create_box 2 1")?;
+    writeln!(
+        w,
+        "read_dump {} 0 id type x y z box yes add yes",
+        DUMP_ATOM_MINIMIZE
+            .with_added_extension(&n.to_string())
+            .display()
+    )?;
+    writeln!(w, "mass 1 69.723")?;
+    writeln!(w, "mass 2 14.007")?;
+    writeln!(w, "write_dump all custom dump.neb_check id type x y z")?;
+    writeln!(w, "pair_style meam")?;
+    writeln!(w, "pair_coeff * * library.meam Ga N GaN.meam Ga N")?;
+    writeln!(w, "min_style fire")?;
+    writeln!(w, "fix 1 all neb 1.0")?;
+    writeln!(
+        w,
+        "neb 0.0 1.0e-10 1000 1000 100 final {}",
+        NEB_FINAL.display()
+    )?;
+    exec_lmp_with_args(IN_FILE.as_path(), ["-partition", &format!("{N}x1")])
+}
+
 fn main() -> Result<()> {
     relax_stuff([A_X, A_Y, A_Z], 1)?;
     relax_stuff([A_X, A_Y + A_D, A_Z], 2)?;
     let coords = extract_coords(
         DUMP_ATOM_MINIMIZE.with_added_extension(&2.to_string()),
     )?;
+    write_final(coords)?;
+    do_neb(1)?;
     Ok(())
 }
