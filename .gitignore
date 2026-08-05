@@ -3,3 +3,8 @@ dump.*
 log.*
 screen.*
 tmp_neb_files/
+
+
+# Added by cargo
+
+/target
