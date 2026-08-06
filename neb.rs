@@ -17,7 +17,7 @@ use std::{
     process::Command,
 };
 
-const N: usize = 4;
+const N: usize = 20;
 
 const IN_FILE: LazyCell<PathBuf> = LazyCell::new(|| PathBuf::from("in.neb"));
 const DUMP_LOAD: LazyCell<PathBuf> =
@@ -170,7 +170,7 @@ where
     for line in reader.lines() {
         let line = line?;
         let tokens = line.split_whitespace().collect::<Vec<_>>();
-        if tokens.len() != 5 {
+        if tokens.len() != 8 {
             continue;
         }
         let idx = 0;
@@ -226,7 +226,7 @@ fn do_neb(n: usize) -> Result<()> {
     writeln!(w, "group mobile subtract all fixed")?;
     writeln!(w, "min_style fire")?;
     writeln!(w, "fix fixed fixed setforce 0.0 0.0 0.0")?;
-    writeln!(w, "fix mobile all neb 1.0")?;
+    writeln!(w, "fix neb mobile neb 1.0")?;
     writeln!(w, "variable P uloop {N}")?;
     writeln!(
         w,
@@ -234,7 +234,7 @@ fn do_neb(n: usize) -> Result<()> {
     );
     writeln!(
         w,
-        "neb 0.0 1.0e-5 10000 10000 1000 final {}",
+        "neb 0.0 1.0e-4 10000 10000 1000 final {}",
         NEB_FINAL.display()
     )?;
     w.flush()?;
