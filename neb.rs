@@ -85,11 +85,14 @@ impl LammpsExecutor {
         S: AsRef<OsStr>,
     {
         let cmd = self.cmd_finder.find()?;
-        Command::new("mpirun")
+        let status = Command::new("mpirun")
             .args(["-n", &N.to_string(), cmd, "-in"])
             .arg(in_file.as_ref())
             .args(args)
             .status()?;
+        if !status.success() {
+            bail!("LAMMPS exited with status {}", status);
+        }
         Ok(())
     }
 
