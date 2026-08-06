@@ -5,7 +5,6 @@ edition = "2024"
 [dependencies]
 anyhow = "1.0.104"
 ---
-#![feature(frontmatter)]
 use anyhow::{bail, Context, Result};
 use std::cell::OnceCell;
 use std::{
@@ -41,7 +40,7 @@ struct LammpsCMDFinder {
 impl Default for LammpsCMDFinder {
     fn default() -> Self {
         Self {
-            candidates: vec!["lmp_mpi", "mpi", "lmp_serial"],
+            candidates: vec!["lmp_mpi", "lmp", "lmp_serial"],
             cmd: OnceCell::new(),
         }
     }
