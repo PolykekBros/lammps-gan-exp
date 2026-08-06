@@ -166,11 +166,15 @@ where
     for line in reader.lines() {
         let line = line?;
         let tokens = line.split_whitespace().collect::<Vec<_>>();
-        let idx = 0;
-        let Some(Ok(a_id)) = tokens.get(idx).map(|s| str::parse::<usize>(s))
-        else {
+        if tokens.len() != 5 {
             continue;
-        };
+        }
+        let idx = 0;
+        let a_id = tokens
+            .get(idx)
+            .map(|s| s.parse::<usize>())
+            .transpose()?
+            .context("no id column")?;
         if a_id != A_ID {
             continue;
         }
@@ -179,7 +183,7 @@ where
         let mut coords = [0f64; 3];
         for (idx, coord) in tokens
             .get(begin..end)
-            .with_context(|| format!("columns {} trough {}", begin, end))?
+            .with_context(|| format!("no columns {} trough {}", begin, end))?
             .iter()
             .enumerate()
         {
