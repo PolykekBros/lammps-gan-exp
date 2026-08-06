@@ -235,6 +235,7 @@ fn do_neb(n: usize) -> Result<()> {
         "neb 0.0 1.0e-10 1000 1000 100 final {}",
         NEB_FINAL.display()
     )?;
+    w.flush()?;
     LammpsExecutor::default()
         .exec_with_args(IN_FILE.as_path(), ["-partition", &format!("{N}x1")])
 }
