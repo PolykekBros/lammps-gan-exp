@@ -7,6 +7,7 @@ anyhow = "1.0.104"
 ---
 #![feature(frontmatter)]
 use anyhow::{bail, Context, Result};
+use std::cell::OnceCell;
 use std::{
     cell::LazyCell,
     ffi::OsStr,
@@ -31,47 +32,78 @@ const DUMP_ATOM_MINIMIZE: LazyCell<PathBuf> =
 const NEB_FINAL: LazyCell<PathBuf> =
     LazyCell::new(|| PathBuf::from("final.neb"));
 
+#[derive(Debug, Clone)]
+struct LammpsCMDFinder {
+    candidates: Vec<&'static str>,
+    cmd: OnceCell<Option<&'static str>>,
+}
+
+impl Default for LammpsCMDFinder {
+    fn default() -> Self {
+        Self {
+            candidates: vec!["lmp_mpi", "mpi", "lmp_serial"],
+            cmd: OnceCell::new(),
+        }
+    }
+}
+
+impl LammpsCMDFinder {
+    fn find(&self) -> Result<&'static str> {
+        self.cmd
+            .get_or_init(|| {
+                let args = ["-h", "-screen", "none"];
+                for variant in &self.candidates {
+                    let err = match Command::new(variant).args(&args).status() {
+                        Ok(_) => return Some(variant),
+                        Err(err) => err,
+                    };
+                    match err.kind() {
+                        std::io::ErrorKind::NotFound => continue,
+                        _ => return Some(variant),
+                    }
+                }
+                None
+            })
+            .with_context(|| {
+                format!(
+                    "could not find any LAMMPS executables: {:?}",
+                    self.candidates
+                )
+            })
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+struct LammpsExecutor {
+    cmd_finder: LammpsCMDFinder,
+}
+
+impl LammpsExecutor {
+    fn exec_with_args<P, I, S>(&self, in_file: P, args: I) -> Result<()>
+    where
+        P: AsRef<Path>,
+        I: IntoIterator<Item = S>,
+        S: AsRef<OsStr>,
+    {
+        let cmd = self.cmd_finder.find()?;
+        Command::new("mpirun")
+            .args(["-n", &N.to_string(), cmd, "-in"])
+            .arg(in_file.as_ref())
+            .args(args)
+            .status()?;
+        Ok(())
+    }
+
+    fn exec<P: AsRef<Path>>(&self, in_file: P) -> Result<()> {
+        self.exec_with_args(in_file, iter::empty::<String>())
+    }
+}
+
 const A_ID: usize = 4001;
 const A_X: f64 = 15.945;
 const A_Y: f64 = 29.776;
 const A_Z: f64 = 27.277;
 const A_D: f64 = 5.1835;
-
-fn get_lmp_cmd() -> Result<&'static str> {
-    Command::new("lmp_mpi")
-        .arg("-h")
-        .status()
-        .map(|_| "lmp_mpi")
-        .or_else(|e| match e.kind() {
-            std::io::ErrorKind::NotFound => {
-                Command::new("lmp").arg("-h").status().map(|_| "lmp")
-            }
-            _ => Err(e),
-        })
-        .map_err(anyhow::Error::from)
-}
-
-fn exec_lmp_with_args<P, I, S>(in_file: P, args: I) -> Result<()>
-where
-    P: AsRef<Path>,
-    I: IntoIterator<Item = S>,
-    S: AsRef<OsStr>,
-{
-    let lmp_cmd = get_lmp_cmd()?;
-    Command::new("mpirun")
-        .args(["-n", &N.to_string(), lmp_cmd, "-in"])
-        .arg(in_file.as_ref())
-        .args(args)
-        .status()?;
-    Ok(())
-}
-
-fn exec_lmp<P>(in_file: P) -> Result<()>
-where
-    P: AsRef<Path>,
-{
-    exec_lmp_with_args(in_file, iter::empty::<String>())
-}
 
 fn relax_stuff(coords: [f64; 3], n: usize) -> Result<()> {
     let x = coords[0];
@@ -121,7 +153,7 @@ fn relax_stuff(coords: [f64; 3], n: usize) -> Result<()> {
         "write_dump all custom {} id type x y z",
         dump_atom_minimize.display()
     )?;
-    exec_lmp(in_file)
+    LammpsExecutor::default().exec(in_file)
 }
 
 fn extract_coords<P>(dump_file: P) -> Result<[f64; 3]>
@@ -136,9 +168,7 @@ where
         let line = line?;
         let tokens = line.split_whitespace().collect::<Vec<_>>();
         let idx = 0;
-        let Some(Ok(a_id)) = tokens
-            .get(idx)
-            .map(|s| str::parse::<usize>(s))
+        let Some(Ok(a_id)) = tokens.get(idx).map(|s| str::parse::<usize>(s))
         else {
             continue;
         };
@@ -198,7 +228,8 @@ fn do_neb(n: usize) -> Result<()> {
         "neb 0.0 1.0e-10 1000 1000 100 final {}",
         NEB_FINAL.display()
     )?;
-    exec_lmp_with_args(IN_FILE.as_path(), ["-partition", &format!("{N}x1")])
+    LammpsExecutor::default()
+        .exec_with_args(IN_FILE.as_path(), ["-partition", &format!("{N}x1")])
 }
 
 fn main() -> Result<()> {
