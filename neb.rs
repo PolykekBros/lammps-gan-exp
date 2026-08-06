@@ -26,10 +26,15 @@ const DUMP_MINIMIZE: LazyCell<PathBuf> =
     LazyCell::new(|| PathBuf::from("dump.minimize"));
 const DUMP_ATOM: LazyCell<PathBuf> =
     LazyCell::new(|| PathBuf::from("dump.atom"));
-const DUMP_ATOM_MINIMIZE: LazyCell<PathBuf> =
-    LazyCell::new(|| PathBuf::from("dump.atom_minimize"));
+const NEB_DATA: LazyCell<PathBuf> = LazyCell::new(|| PathBuf::from("data.neb"));
 const NEB_FINAL: LazyCell<PathBuf> =
     LazyCell::new(|| PathBuf::from("final.neb"));
+
+#[derive(Debug, Clone)]
+struct InputWriter {
+    path: PathBuf,
+    file: String,
+}
 
 #[derive(Debug, Clone)]
 struct LammpsCMDFinder {
@@ -115,8 +120,7 @@ fn relax_stuff(coords: [f64; 3], n: usize) -> Result<()> {
     let dump_load = DUMP_LOAD.with_added_extension(&n.to_string());
     let dump_minimize = DUMP_MINIMIZE.with_added_extension(&n.to_string());
     let dump_atom = DUMP_ATOM.with_added_extension(&n.to_string());
-    let dump_atom_minimize =
-        DUMP_ATOM_MINIMIZE.with_added_extension(&n.to_string());
+    let neb_data = NEB_DATA.with_added_extension(&n.to_string());
     let file = File::create(&in_file)
         .with_context(|| format!("file: {}", in_file.display()))?;
     let mut w = BufWriter::new(file);
@@ -150,11 +154,7 @@ fn relax_stuff(coords: [f64; 3], n: usize) -> Result<()> {
     )?;
     writeln!(w, "minimize 1.0e-10 1.0e-10 10000 10000")?;
     writeln!(w, "reset_timestep 0")?;
-    writeln!(
-        w,
-        "write_dump all custom {} id type x y z",
-        dump_atom_minimize.display()
-    )?;
+    writeln!(w, "write_data {}", neb_data.display())?;
     w.flush()?;
     LammpsExecutor::default().exec(in_file)
 }
@@ -214,25 +214,27 @@ fn do_neb(n: usize) -> Result<()> {
     writeln!(w, "boundary p p f")?;
     writeln!(w, "atom_style atomic")?;
     writeln!(w, "atom_modify map array sort 0 0.0")?;
-    writeln!(w, "region 1 block 0 1 0 1 0 1")?;
-    writeln!(w, "create_box 2 1")?;
     writeln!(
         w,
-        "read_dump {} 0 id type x y z box yes add yes",
-        DUMP_ATOM_MINIMIZE
-            .with_added_extension(&n.to_string())
-            .display()
+        "read_data {}",
+        NEB_DATA.with_added_extension(&n.to_string()).display()
     )?;
-    writeln!(w, "mass 1 69.723")?;
-    writeln!(w, "mass 2 14.007")?;
-    writeln!(w, "write_dump all custom dump.neb_check id type x y z")?;
     writeln!(w, "pair_style meam")?;
     writeln!(w, "pair_coeff * * library.meam Ga N GaN.meam Ga N")?;
+    writeln!(w, "region fixed block INF INF INF INF INF $(zlo+5.0)")?;
+    writeln!(w, "group fixed region fixed")?;
+    writeln!(w, "group mobile subtract all fixed")?;
     writeln!(w, "min_style fire")?;
-    writeln!(w, "fix 1 all neb 1.0")?;
+    writeln!(w, "fix fixed fixed setforce 0.0 0.0 0.0")?;
+    writeln!(w, "fix mobile all neb 1.0")?;
+    writeln!(w, "variable P uloop {N}")?;
     writeln!(
         w,
-        "neb 0.0 1.0e-10 1000 1000 100 final {}",
+        "dump neb all custom 100 dump.neb.$P id type xu yu zu fx fy fz"
+    );
+    writeln!(
+        w,
+        "neb 0.0 1.0e-5 10000 10000 1000 final {}",
         NEB_FINAL.display()
     )?;
     w.flush()?;
@@ -243,9 +245,7 @@ fn do_neb(n: usize) -> Result<()> {
 fn main() -> Result<()> {
     relax_stuff([A_X, A_Y, A_Z], 1)?;
     relax_stuff([A_X, A_Y + A_D, A_Z], 2)?;
-    let coords = extract_coords(
-        DUMP_ATOM_MINIMIZE.with_added_extension(&2.to_string()),
-    )?;
+    let coords = extract_coords(NEB_DATA.with_added_extension(&2.to_string()))?;
     write_final(coords)?;
     do_neb(1)?;
     Ok(())
