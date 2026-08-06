@@ -155,6 +155,7 @@ fn relax_stuff(coords: [f64; 3], n: usize) -> Result<()> {
         "write_dump all custom {} id type x y z",
         dump_atom_minimize.display()
     )?;
+    w.flush()?;
     LammpsExecutor::default().exec(in_file)
 }
 
