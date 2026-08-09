@@ -11,7 +11,7 @@ regex = "1.13.1"
 pedantic = { level = "deny", priority = -1 }
 
 [workspace]
-members = []
+members = ["lammps_cmd"]
 
 [[bin]]
 name = "neb"
